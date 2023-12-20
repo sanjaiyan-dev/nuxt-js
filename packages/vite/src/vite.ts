@@ -77,7 +77,7 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
         css: resolveCSSOptions(nuxt),
         define: {
           __NUXT_VERSION__: JSON.stringify(nuxt._version),
-          'process.env.NUXT_ASYNC_CONTEXT': nuxt.options.experimental.asyncContext
+          __NUXT_ASYNC_CONTEXT__: nuxt.options.experimental.asyncContext
         },
         build: {
           copyPublicDir: false,
@@ -99,7 +99,7 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
         },
         plugins: [
           composableKeysPlugin.vite({
-            sourcemap: nuxt.options.sourcemap.server || nuxt.options.sourcemap.client,
+            sourcemap: !!nuxt.options.sourcemap.server || !!nuxt.options.sourcemap.client,
             rootDir: nuxt.options.rootDir,
             composables: nuxt.options.optimization.keyedComposables
           }),
@@ -110,7 +110,15 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
           virtual(nuxt.vfs)
         ],
         vue: {
-          reactivityTransform: nuxt.options.experimental.reactivityTransform
+          template: {
+            transformAssetUrls: {
+              video: ['src', 'poster'],
+              source: ['src'],
+              img: ['src'],
+              image: ['xlink:href', 'href'],
+              use: ['xlink:href', 'href']
+            }
+          }
         },
         server: {
           watch: { ignored: isIgnored },
@@ -131,7 +139,7 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
   }
 
   // Add type-checking
-  if (ctx.nuxt.options.typescript.typeCheck === true || (ctx.nuxt.options.typescript.typeCheck === 'build' && !ctx.nuxt.options.dev)) {
+  if (!ctx.nuxt.options.test && (ctx.nuxt.options.typescript.typeCheck === true || (ctx.nuxt.options.typescript.typeCheck === 'build' && !ctx.nuxt.options.dev))) {
     const checker = await import('vite-plugin-checker').then(r => r.default)
     addVitePlugin(checker({
       vueTsc: {
@@ -192,13 +200,9 @@ export const bundle: NuxtBuilder['bundle'] = async (nuxt) => {
       }
     })
 
-    if (
-      nuxt.options.vite.warmupEntry !== false &&
-      // https://github.com/nuxt/nuxt/issues/14898
-      !(env.isServer && ctx.nuxt.options.vite.devBundler !== 'legacy')
-    ) {
+    if (nuxt.options.vite.warmupEntry !== false) {
       const start = Date.now()
-      warmupViteServer(server, [join('/@fs/', ctx.entry)], env.isServer)
+      warmupViteServer(server, [ctx.entry], env.isServer)
         .then(() => logger.info(`Vite ${env.isClient ? 'client' : 'server'} warmed up in ${Date.now() - start}ms`))
         .catch(logger.error)
     }

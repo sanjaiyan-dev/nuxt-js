@@ -3,7 +3,7 @@ import webpack from 'webpack'
 import ForkTSCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
 import { logger } from '@nuxt/kit'
 import type { WebpackConfigContext } from '../utils/config'
-import { applyPresets, getWebpackConfig } from '../utils/config'
+import { applyPresets } from '../utils/config'
 import { nuxt } from '../presets/nuxt'
 import { node } from '../presets/node'
 
@@ -20,14 +20,17 @@ export function server (ctx: WebpackConfigContext) {
     serverPreset,
     serverPlugins
   ])
-
-  return getWebpackConfig(ctx)
 }
 
 function serverPreset (ctx: WebpackConfigContext) {
   ctx.config.output!.filename = 'server.mjs'
 
-  ctx.config.devtool = ctx.nuxt.options.sourcemap.server ? ctx.isDev ? 'cheap-module-source-map' : 'source-map' : false
+  if (ctx.nuxt.options.sourcemap.server) {
+    const prefix = ctx.nuxt.options.sourcemap.server === 'hidden' ? 'hidden-' : ''
+    ctx.config.devtool = prefix + ctx.isDev ? 'cheap-module-source-map' : 'source-map'
+  } else {
+    ctx.config.devtool = false
+  }
 
   ctx.config.optimization = {
     splitChunks: false,
@@ -42,6 +45,7 @@ function serverStandalone (ctx: WebpackConfigContext) {
     '#app',
     'nuxt',
     'nuxt3',
+    'nuxt-nightly',
     '!',
     '-!',
     '~',
@@ -85,7 +89,7 @@ function serverPlugins (ctx: WebpackConfigContext) {
   }
 
   // Add type-checking
-  if (ctx.nuxt.options.typescript.typeCheck === true || (ctx.nuxt.options.typescript.typeCheck === 'build' && !ctx.nuxt.options.dev)) {
+  if (!ctx.nuxt.options.test && (ctx.nuxt.options.typescript.typeCheck === true || (ctx.nuxt.options.typescript.typeCheck === 'build' && !ctx.nuxt.options.dev))) {
     ctx.config.plugins!.push(new ForkTSCheckerWebpackPlugin({
       logger
     }))
